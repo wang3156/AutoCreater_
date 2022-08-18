@@ -1,0 +1,85 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+
+}
+@using Models.Base;
+@using Newtonsoft.Json;
+
+@section cut_head{
+    <style>
+        #contentPage {
+            border: 1px solid black;
+            width: calc(100% - 2px);
+            height: calc(100% - 6px);
+        }
+    </style>
+}
+
+<el-container>
+    <el-header>
+        <el-menu v-bind:default-active="activeIndex2"
+                 class="el-menu-demo"
+                 mode="horizontal"
+                 @@select="handleSelect"
+                 background-color="#545c64"
+                 text-color="#fff"
+                 active-text-color="#ffd04b"
+                 menu-trigger="click">
+            @foreach (var item in (ViewBag.Menus as List<Menus>))
+            {
+            <el-menu-item index="@item.ID" data-url="@item.MenuUrl" data-_data='@JsonConvert.SerializeObject(item)'>@item.MenuName</el-menu-item>
+            }
+
+
+            @*<el-submenu index="2">
+                    <template slot="title">
+                        我的菜单
+                    </template>
+                    <el-menu-item index="2-1">选项1</el-menu-item>
+                    <el-submenu index="2-4">
+                        <template slot="title">
+                            选项4
+                        </template>
+                        <el-menu-item index="2-4-1">选项1</el-menu-item>
+                    </el-submenu>
+                </el-submenu>
+                <el-menu-item index="4"><a href="https://www.ele.me" target="_blank">订单管理</a></el-menu-item>*@
+        </el-menu>
+    </el-header>
+    <el-main v-loading="fra_loading">
+       
+            <iframe id="contentPage" src='@Url.Content("~/CreateTable")'></iframe>
+       
+        
+    </el-main>
+    <el-footer>Footer</el-footer>
+</el-container>
+
+
+
+@section scripts{
+    <script>
+        var vue_methods = {
+            handleSelect: function (a, b, c) {
+                var url = c.$attrs["data-url"];
+                if (!url) {
+                    return false;
+                }
+                var pex = url.substring(0, 7).toLocaleLowerCase();
+                if (pex != "http://") {
+                    if (pex.substring(0, 4) == "www.") {
+                        url = "http://" + url;
+                    }
+                    else {
+                        url = baseUrl + url;
+                    }
+                }
+                $("#contentPage").attr("src", url);
+            }
+        }
+
+        var vue_data = {
+            activeIndex2: '@((ViewBag.Menus as List<Menus>)[0].ID)'
+        };
+    </script>
+}

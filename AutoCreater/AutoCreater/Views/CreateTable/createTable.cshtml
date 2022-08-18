@@ -1,0 +1,552 @@
+﻿
+@{
+    ViewBag.Title = "Create Table";
+}
+@section cut_head{
+    <style>
+        .div_content .el-form-item {
+            margin: 0px;
+        }
+
+        #table_Content {
+            height: 40%;
+        }
+
+        .div_content {
+            height: calc(100% - 50px);
+            padding: 3px;
+        }
+
+        .div_btns {
+            padding: 2px;
+        }
+
+        .cut_width1 {
+            width: 150px;
+        }
+
+        .pageDef {
+            height: calc(65% - 4px);
+        }
+        /*is-error*/
+        .display-inline {
+            display: inline;
+        }
+    </style>
+}
+
+
+
+<div class="div_btns">
+    <el-button v-on:click="onAddField">Add</el-button>
+    <el-button type="primary" v-on:click="onSave" v-bind:disabled="!d_canSave">保存</el-button>
+    <el-checkbox v-on:click="onChangeCreatePage" v-model="createPage" v-bind:disabled="!d_canSave">生成页面</el-checkbox>
+    <el-input v-model="namespace" placeholder="输入xxx 则生成空间名 xxx.DAL/BLL/Controllers" title="输入xxx 则生成空间名 xxx.DAL/BLL/Controllers" style="width:30%;"></el-input>
+    <span>
+        <el-checkbox v-model="TableObj.Existing" v-on:change="onExistingChange">已有表</el-checkbox>
+        <el-select v-model="TableObj.tableName" class="el-form-item__content cut_width1" filterable v-bind:disabled="!TableObj.Existing" v-on:change="onChangeExist">
+            <el-option v-for="item in options.TableList"
+                       v-bind:key="item.TableName"
+                       v-bind:label="item.TableName"
+                       v-bind:value="item.TableName"
+                       v-if="item.TableName!=TableObj.tableName">
+            </el-option>
+        </el-select>
+    </span>
+    <el-button type="warning" disabled>警告按钮</el-button>
+    <el-button type="danger" disabled>危险按钮</el-button>
+</div>
+<div class="div_content">
+    <el-table v-bind:data="tableData" style="width: 100%;" height="35%" id="table_Content" ref="mainTable">
+        <el-table-column label="列名" width="180">
+            <template slot-scope="scope">
+                <el-input v-model="scope.row.FieldName" class="el-form-item" v-bind:class="[{'is-error':!scope.row.FieldName}]" placeholder="请输入列名"></el-input>
+            </template>
+        </el-table-column>
+        <el-table-column label="说明" width="180">
+            <template slot-scope="scope">
+                <el-input v-model="scope.row.Explain" class="el-form-item" placeholder="请输入说明"></el-input>
+            </template>
+        </el-table-column>
+        <el-table-column label="显示名" width="180">
+            <template slot-scope="scope">
+                <el-input v-model="scope.row.DisplayName" class="el-form-item" placeholder="请输入在页面的显示名"></el-input>
+            </template>
+        </el-table-column>
+        <el-table-column label="数据类型" width="120">
+            <template slot-scope="scope">
+                <el-select v-model="scope.row.DbType" v-on:change="onchange_dbType(scope.row)">
+                    <el-option v-for="item in options.DBType"
+                               v-bind:key="item.DBType"
+                               v-bind:label="item.DBType"
+                               v-bind:value="item.DBType"
+                               v-bind:title="item.Explain">
+                    </el-option>
+                </el-select>
+            </template>
+        </el-table-column>
+        <el-table-column label="长度" width="120">
+            <template slot-scope="scope">
+                <el-input v-model="scope.row.Length" placeholder="请输入长度" v-bind:class="[{'is-error':checkLength(scope.row)}]" v-bind:disabled="!scope.row.IsLength" class="el-form-item"></el-input>
+            </template>
+        </el-table-column>
+        <el-table-column label="自增" width="50">
+            <template slot-scope="scope">
+                <el-checkbox v-model="scope.row.Identity" v-bind:disabled="scope.row.DbType!='int'"></el-checkbox>
+            </template>
+        </el-table-column>
+        <el-table-column label="主键" width="50">
+            <template slot-scope="scope">
+                <el-checkbox v-model="scope.row.PrimaryKey" v-bind:disabled="cansetpk(scope.row)" v-on:click="scope.row.Nullable=false"></el-checkbox>
+            </template>
+        </el-table-column>
+        <el-table-column label="可空" width="50">
+            <template slot-scope="scope">
+                <el-checkbox v-model="scope.row.Nullable" v-bind:disabled="(scope.row.Identity||scope.row.PrimaryKey)?!(scope.row.Nullable=false):false"></el-checkbox>
+            </template>
+        </el-table-column>
+        <el-table-column label="delete" width="100" v-if="!TableObj.Existing">
+            <template slot-scope="scope">
+                <el-button type="danger" icon="el-icon-delete" size="mini" circle v-on:click="onRowDelete(scope.row.Index)"></el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+    @*生成页面的配置信息*@
+    <div class="pageDef" v-show="createPage">
+        <fieldset style="height:calc(100% - 20px)">
+            <legend>页面列表显示属性</legend>
+            <div style="height:100%;">
+                <div>
+                    <el-checkbox v-model="TableObj.IsExport">导出</el-checkbox>
+                    <el-checkbox v-model="TableObj.IsAdd">新增</el-checkbox>
+                    <el-checkbox v-model="TableObj.IsDel">删除</el-checkbox>
+                    <el-checkbox v-model="TableObj.IsUpdate">修改</el-checkbox>
+                    <div class="display-inline">
+                        <div class="display-inline">
+                            <label>外键表</label>
+                            <el-select v-model="cFKTableName" class="el-form-item__content cut_width1" filterable>
+                                <el-option v-for="item in options.TableList"
+                                           v-bind:key="item.TableName"
+                                           v-bind:label="item.TableName"
+                                           v-bind:value="item.TableName"
+                                           v-if="item.TableName!=TableObj.tableName">
+                                </el-option>
+                            </el-select>
+                        </div>
+                        <el-button type="info" v-on:click="onAddFK">添加外键</el-button>
+                    </div>
+                </div>
+                <hr />
+                <el-table v-bind:data="tableData" style="width:48%;float:left;" class="display-inline" height="calc(100% - 75px)" id="table_Page">
+                    <el-table-column label="列名" width="180" prop="FieldName">
+                    </el-table-column>
+                    <el-table-column label="显示" width="50">
+                        <template slot-scope="scope">
+                            <div class="demo-form-inline el-form--inline">
+                                <el-checkbox v-model="scope.row.DisplayPage" v-bind:disabled="scope.row.FKDisplayPage" v-on:change="onChangeDisplay(scope.row)" class="el-form-item__content" style="margin:0px;"></el-checkbox>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="查询" width="50">
+                        <template slot-scope="scope">
+                            <el-checkbox v-model="scope.row.IsQuery"></el-checkbox>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="查询方式" width="150">
+                        <template slot-scope="scope">
+                            <el-select v-model="scope.row.QueryType" class="el-form-item__content" v-bind:disabled="scope.row.IsQuery?false:!!(scope.row.QueryType='=')">
+                                <el-option v-for="item in options.QueryType"
+                                           v-bind:key="item.id"
+                                           v-bind:label="item.txt"
+                                           v-bind:value="item.val">
+                                </el-option>
+                            </el-select>
+                        </template>
+                    </el-table-column>
+                </el-table>
+
+                <el-table v-bind:data="FKObject" style="width: 48%;float:right;" class="display-inline" height="calc(100% - 75px)">
+                    <el-table-column label="外键表名" width="180" prop="TableName">
+                    </el-table-column>
+                    <el-table-column label="显示/显示列名(默认显示列名)" width="250">
+                        <template slot-scope="scope">
+                            <a v-on:click="cFKTableName=scope.row.TableName;onAddFK();" href="javascript:void(0)">编辑</a>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="delete" width="100">
+                        <template slot-scope="scope">
+                            <el-button type="danger" icon="el-icon-delete" circle v-on:click="onFKTableDelRow(scope.row.TableName)"></el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
+        </fieldset>
+
+    </div>
+</div>
+
+
+<el-dialog title="外键设置" v-bind:visible.sync="dialogFKVisible" v-bind:close-on-press-escape="false" v-bind:before-close="closeFkDig" v-bind:close-on-click-modal="false">
+    <el-table v-bind:data="tableFields" style="width: 100%;" height="520px">
+        <el-table-column label="列名" width="180" prop="FieldName">
+        </el-table-column>
+        <el-table-column label="显示/显示列名(默认显示列名)" width="250">
+            <template slot-scope="scope">
+                <div class="demo-form-inline el-form--inline">
+                    <el-checkbox v-model="scope.row.DisplayPage" v-on:change="onChangeDisplay(scope.row)" class="el-form-item__content" style="margin:0px;"></el-checkbox>
+                    <el-input v-model="scope.row.DisplayName" v-bind:disabled="!scope.row.DisplayPage" class="el-form-item__content" style="width:210px;" placeholder="页面显示名"></el-input>
+                </div>
+            </template>
+        </el-table-column>
+        <el-table-column label="是否关联" width="250">
+            <template slot-scope="scope">
+                <div class="demo-form-inline el-form--inline">
+                    <el-checkbox v-model="scope.row.isFKFiled" class="el-form-item__content" v-on:change="if(!scope.row.isFKFiled)scope.row.FKFiled=''"></el-checkbox>
+                    <el-select v-model="scope.row.FKFiled" class="el-form-item__content cut_width1" v-bind:disabled="!scope.row.isFKFiled">
+                        <el-option v-for="item in tableData"
+                                   v-bind:key="item.FieldName"
+                                   v-bind:label="item.FieldName"
+                                   v-bind:value="item.FieldName"
+                                   v-if="showGl(item.FieldName)">
+                        </el-option>
+                    </el-select>
+                </div>
+            </template>
+        </el-table-column>
+    </el-table>
+    <div>
+        <el-button type="primary" v-on:click="onSaveFk" v-bind:disabled="tableFields.lenght==0">保存</el-button>
+    </div>
+</el-dialog>
+
+@section scripts{
+    <script>
+
+        /**
+         * 生成表字段属性
+         * @@param lx :fkFiled/filed   'filed':  //主表字段属性 'fkFiled': //外键表属性,少了FieldName字段,它由后台返回
+         */
+        function createTableFiled(lx) {
+            switch (lx) {
+                case 'filed':  //主表字段属性
+                    return { Index: identity, FieldName: '', DbType: vue_data.options.DBType[0].DBType, Length: '', Identity: false, Nullable: true, DisplayName: "", DisplayPage: false, IsQuery: false ,PrimaryKey:false,Explain:"",QueryType:'='};
+                case 'fkFiled': //外键表属性,少了FieldName字段,它由后台返回
+                    return { DisplayPage:false, DisplayName: "", isFKFiled: false, FKFiled: "",DbType:"",FieldName:"" };
+                case 'fk':
+                    return { tableName: '', FKFieldName: [{ FieldName: '', FKField: '' }], DisplayField: [{ FieldName: '', DisplayName: '' }] };
+                default:
+            }
+
+        }
+        var identity = 1;
+        //检查是否可以保存的定时器
+        var tt=-1;
+        var vue_methods = {
+            onAddField: function () {
+                var o = createTableFiled('filed');
+                vue_data.tableData.push(o);
+                identity++;
+                if (tt==-1) {
+                    tt = setInterval(vue_methods.canSave, 500);
+                }
+
+            },
+            //删除行事件
+            onRowDelete: function (Index) {
+                var data = vue_data.tableData;
+                for (var i = data.length-1; i >-1; i--) {
+                    if (data[i].Index == Index) {
+                        data.splice(i, 1);
+                        break;
+                    }
+                }
+                if (data.length == 0) {
+                    setTimeout(function () {
+                        clearInterval(tt);
+                        tt = -1;
+                    },1000)
+                }
+
+            },
+            //修改列的类型
+            onchange_dbType: function (o) {
+                var dtp = vue_data.options.DBType;
+                for (var i = 0; i < dtp.length; i++) {
+                    if (dtp[i].DBType == o.DbType) {
+                        if (!(o.IsLength = dtp[i].IsLength)) {
+                            o.Length = '';
+                        }
+                    }
+                }
+
+            },
+            //检查长度是否填写正确,decimal 类型长度为 (int;int>0),int
+            checkLength: function (row) {
+                if (!row.IsLength) {
+                    return false;
+                }
+                var reg = /[1-9][0-9]*/;
+                if (row.DbType == 'decimal') {//长度为int,int
+                    reg = /[1-9][0-9]*,\d+/;
+                }
+                return !reg.test(row.Length);
+            },
+            //验证当前填写的信息是否完整,是否可保存
+            canSave: function () {
+                var ok = true;
+                if (vue_data.tableData.length == 0) {
+                    ok= false;
+                } else if ($("#table_Content .is-error").length == 0) {
+                    ok = true;
+                } else {
+                    ok = false;
+                }
+                vue_data.d_canSave = ok;
+
+            },
+            //点保存事件
+            onSave: function () {
+                var self = this;
+
+                var fun=function(){
+                    ajaxFun('@Url.Action("CreateTable")',{Tobj: $.extend(true,self.TableObj,{ TableDefs: self.tableData, FkObjs: self.FKObject,Namespace:self.namespace })},function(re){
+                        alert("ok");
+                        vue_data.TableObj.Existing=true;
+                    })
+                }
+                if (!vue_data.TableObj.tableName) {
+                    self.$prompt('请输入表名', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        inputPattern: /^\w+$/,
+                        inputErrorMessage: '表名只能由字母数字_组成',
+                        callback: function (ok,v) {
+                            if (ok != 'confirm') {
+                                return;
+                            }
+                            var reg=/^\w+$/
+                            self.TableObj.tableName = v.inputValue
+                            //  console.log({ TableName: self.tableName, IsExport: vue_data.IsExport, Def: vue_data.tableData, _FkObj: self.FKObject });
+                            fun();
+                        }
+
+                    });
+                }else {
+                    fun();
+                }
+
+            },
+            onChangeCreatePage: function () {
+
+            },
+            //是否显示列名
+            onChangeDisplay: function (row) {
+
+                //设置默认值 ,默认直接显示该列列名
+                row.DisplayName =row.DisplayName;
+            },
+            //添加外键
+            onAddFK: function () {
+                var t=  this.cFKTableName
+                if (!t) {
+                    this.$message.error('请选择外键表!')
+                    return;
+                }
+                vue_data.tableFields =this.getFkFields(t);
+                vue_data.dialogFKVisible = true;
+            },
+            getFkFields:function(t,n){
+
+                if (!t) {
+                    return ;
+                }
+                if (!n) {
+                    n='fkFiled';
+                }
+                var data;
+                if (!vue_data.FkAllData[t]) {
+                    ajaxFun('@Url.Action("GetFields")', { tableName: t }, function (json) {
+                        for (var i = 0; i < json.length; i++) {
+                            json[i] = $.extend(true, createTableFiled(n),json[i]);
+                        }
+                        vue_data.FkAllData[t] = json;
+                        data= $.extend(true,[], json);
+                    },null,null,false);
+                } else {
+                    var o =  this.getFKData(t);
+                    if (o) {
+                        var m=new Map();
+                        var d=$.extend(true, [], vue_data.FkAllData[t]);
+                        for (var i = 0; i < d.length; i++) {
+                            m.set(d[i].FieldName,d[i]);
+                        }
+                        for (var i = 0; i < o.data.FkDefs.length; i++) {
+                            var d=o.data.FkDefs[i];
+                            m.set(d.FieldName,d);
+                        }
+                        data=[];
+                        m.forEach(function(v){
+                            data.push(v);
+                        });
+                    } else {
+                        data = $.extend(true, [], vue_data.FkAllData[t]);
+                    }
+
+
+                }
+                return data;
+            },
+            closeFkDig: function (done) {
+                vue_data.tableFields = [];
+                done();
+            },
+            onSaveFk: function () {
+                var d = vue_data.tableFields;
+                var dt=[];
+                var fk = false;
+                var show = false;
+                for (var i = 0; i < d.length; i++) {
+                    if (d[i].isFKFiled &&d[i].FKFiled) {
+                        fk = true;
+                        dt.push(d[i]);
+                    } else if (d[i].DisplayPage) {
+                        show = true;
+                        dt.push(d[i]);
+                    }
+                }
+                if (!fk || !show) {
+                    this.$message.error("请设置关联键,并设置页面需要显示的字段");
+                    return;
+                }
+
+                var o = this.getFKData(this.cFKTableName);
+                if (o) {
+                    o.data.FkDefs = dt;
+                } else {
+                    vue_data.FKObject.push({ TableName: this.cFKTableName, FkDefs: dt });
+                }
+                vue_data.dialogFKVisible = false;
+            },
+            onFKTableDelRow: function (tableName) {
+
+                var o = this.getFKData(tableName)
+                if (o) {
+                    vue_data.FKObject.splice(o.index, 1);
+                }
+
+            },
+            /**
+             * 从FKObject对象中获取指定TableName的数据
+             * returns : {index:,data,} 或 null
+             * */
+            getFKData: function (tableName) {
+                var fk = vue_data.FKObject;
+                for (var i = 0; i < fk.length ; i++) {
+                    if (fk[i].TableName == tableName) {
+                        return {index:i,data:fk[i]}
+                    }
+                }
+                return null;
+            },
+            //在关联字段中是否显示它
+            showGl: function (f) {
+                var c;
+                for (var i = 0; i < this.tableFields.length; i++) {
+                    c = this.tableFields[i];
+                    if (c.FKFiled == f) {
+                        return false;
+                    }
+                }
+                return true;
+
+            },
+            onExistingChange:function(){
+                if (!vue_data.TableObj.Existing||!vue_data.TableObj.tableName) {
+                    vue_data.TableObj.tableName='';
+                    vue_data.TableObj.IsAdd=vue_data.TableObj.IsDel=vue_data.TableObj.IsExport=vue_data.TableObj.IsUpdate=false;
+                    vue_data.tableData=[];
+                    clearInterval(tt);
+                    tt=-1;
+                    vue_data.d_canSave=false;
+                    vue_data.createPage=false;
+                }
+            },
+            onChangeExist:function(){
+
+                if (!vue_data.TableObj.tableName) {
+                    this.onExistingChange();
+                    return;
+                }
+                var data=this.getFkFields(vue_data.TableObj.tableName,'filed');
+                vue_data.tableData=data;
+                var ch= vueObj.$refs.mainTable.$children;
+                ch=ch[ch.length-1];
+                var c;
+                this.$nextTick(function(){
+                    for (var i = 0; i < ch.$children.length; i++) {
+                        c=ch.$children[i];
+                        if (c.$vnode.tag.endsWith("ElSelect")) {
+                            c.emitChange();
+                        }
+                    }
+                    if (tt==-1) {
+                        tt = setInterval(vue_methods.canSave, 500);
+                    }
+
+                });
+
+            },
+            //控制只能设置一个主键
+            cansetpk:function(k){
+                var o= vue_data.tableData.find(function(a){
+                    return a.PrimaryKey;
+                });
+                if (o) {
+                    o= o.FieldName!=k.FieldName;
+                }else {
+                    o= false;
+                }
+                console.log(k.FieldName+" = "+o);
+                return o;
+            }
+        }
+
+
+
+
+        var vue_data = {
+            TableObj:{
+                IsAdd:false,
+                IsDel:false,
+                IsUpdate:false,
+                Existing:false,
+                tableName:'' ,
+                IsExport: false,
+            },
+            tableData: [],//{[Index:,FieldName:''DbType:'',Length:'',IsLength:false/true,Identity:true/false,Nullable:true/false }]
+            d_canSave: false,
+            createPage: false,
+            //命名空间前缀(如输入xxx 则生成DAL命名空间为 xxx.DAL)
+            namespace:'',
+            //是否显示设置外键的窗口
+            dialogFKVisible: false,
+            //当前选择的外键表名
+            cFKTableName:'',
+            //记录已经查询了的表和它们的列 []
+            tableFields: [],
+            //已设置的外键信息
+            FKObject: [],
+            FkAllData:[],
+            options: {
+                DBType:@Html.Raw(ViewData["DBType"]),
+                TableList:@Html.Raw(ViewData["Tables"]),
+                //当前选择外键表所有列
+                FKFileds:[],
+                QueryType:[{id:1,txt:'完全匹配',val:"="},{id:2,txt:'模糊查询',val:"like"},{id:3,txt:'以开头',val:"like%"},{id:4,txt:'以结尾',val:"%like"}]
+
+            }
+        };
+
+
+    </script>
+}

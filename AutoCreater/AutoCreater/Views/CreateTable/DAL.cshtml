@@ -1,0 +1,153 @@
+@using Models.CreateProperty;
+@using RazorEngineTest;
+@using Newtonsoft.Json;
+
+@model TableObj
+
+using CommLibrary.DB;
+using CommModels;
+using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Data;
+using CommLibrary;
+using Newtonsoft.Json;
+
+namespace @(string.IsNullOrWhiteSpace(Model.Namespace) ? Model.TableName : Model.Namespace).DAL
+{
+    public class @(Model.TableName)DAL : IDisposable
+    {
+    SqlServerDBHelper sdb = new SqlServerDBHelper();
+
+    public void Dispose()
+    {
+    sdb.Dispose();
+    }
+    /// <summary>
+    /// 获取分页数据
+    ///</summary>
+    /// <param name="pi"></param>
+    /// <param name="dic"></param>
+    /// <returns>返回的也是PageInfo对象,其中的值只看总页码和Data即可</returns>
+    public PageInfo GetPage(PageInfo pi,Dictionary<string, string>
+        dic)
+        {
+
+                List<SqlParameter>  pars = new List<SqlParameter>   { new SqlParameter("@@pi", pi.PageIndex), new SqlParameter("@@pz", pi.PageSize) };
+                List<string> where = new List<string>();
+                 Dictionary<string, string> Querys = JsonConvert.DeserializeObject<Dictionary<string, string>>("@RazorHelper.RawHtml(JsonConvert.SerializeObject(Model.TableDefs.Where(c => c.IsQuery).ToDictionary(c => c.FieldName, b => b.QueryType)).Replace("\"", "\\\""))");
+                        int i = 0;
+                        foreach (var item in dic)
+                        {
+                        if(!string.IsNullOrWhiteSpace(item.Value)){                      
+                        pars.Add(new SqlParameter("@@par" + i, CommFun.GetParameterValue(item.Value.Trim(),Querys[item.Key])));
+                        where.Add($" a.[{item.Key}] {(Querys[item.Key]=="="?"=":"like")} @@par{i}");
+                        i++;
+                        }
+                        }
+                        @{
+                            string[] times = new string[] { "datetime", "date" };
+
+                            //所有需要查询的字段
+                            List<string> fs = new List<string>();
+                            //查询关联的表
+                            List<string> tb = new List<string>();
+                            //外键关联条件
+                            List<string> where = new List<string>();
+
+                            //添加主表要查询的字段
+                            tb.Add(Model.TableName + " a");
+
+                            fs.AddRange(Model.TableDefs.Where(c => c.DisplayPage||c.PrimaryKey).Select(c => { if (times.Contains(c.DbType.ToLower())) { return "[" + c.FieldName.Trim() + "]=Convert(varchar(" + ("date" == c.DbType.ToLower() ? 10 : 19) + "),a.[" + c.FieldName.Trim() + "],120)"; } else { return "a.[" + c.FieldName.Trim() + "]"; } })); 
+
+                            int i = 0;
+                            string t;
+                            Model.FkObjs.ForEach(c =>
+                            {
+                                //外键表别名
+                                t = "a" + i;
+                                tb.Add(c.TableName + " " + t);
+                                fs.AddRange(c.FkDefs.Where(d => d.DisplayPage).Select(d =>
+                                {
+                                    if (times.Contains(d.DbType.ToLower())) { return "[" + d.FieldName.Trim() + "]=Convert(varchar(" + ("date" == d.DbType.ToLower() ? 10 : 19) + ")," + t + ".[" + d.FieldName.Trim() + "],120)"; } else { return t + ".[" + d.FieldName.Trim() + "]"; }
+                                }));
+                                where.AddRange(c.FkDefs.Where(d => d.IsFKFiled).Select(d => "a.[" + d.FKFiled.Trim() + "]=" + t + ".[" + d.FieldName.Trim() + "]"));
+                                i++;
+                            });
+
+
+
+                        }
+                        pars.Add(new SqlParameter("@@count", SqlDbType.Int) { Direction = System.Data.ParameterDirection.Output });
+                        pi.Data = sdb.GetDataTable($" select @string.Join(",", fs) into  #k From  @string.Join(",", tb)  where  @(string.Join(" and ", where) + (where.Count > 0 ? " and " : "")) 1=1 {(where.Count > 0 ? " and " : "")+string.Join(" and ", where)} ;select @@count=count(1) From #k ;select * From #k order by {pi.SortExpression} offset  (@@pi-1)*@@pz rows fetch next @@pz rows only  ;drop table #k", pars);
+                        pi.TotalRowNum = Convert.ToInt32(pars.Last().Value);
+                        return pi;
+
+        }
+        @{ 
+        if (Model.IsDel)
+        {
+                   
+            @:/// <summary>
+            @:/// 删除数据 
+            @:/// </summary>
+            @:/// <param name="pk">主键</param>
+            @:/// <returns></returns>
+            <text>
+            public string OnDelete(string pk)
+            {
+                try
+                    {
+               sdb.ExecuteNonQuery("Delete @Model.TableName where [@(Model.TableDefs.Where(c=>c.PrimaryKey).FirstOrDefault().FieldName.Trim())]=@@pk ",new SqlParameter[] { new SqlParameter("@@pk", (SqlDbType)Enum.Parse(typeof(SqlDbType),"@(Model.TableDefs.Where(c => c.PrimaryKey).FirstOrDefault().DbType.Trim())",true)) { SqlValue = pk }}) ; 
+                  return "";
+                 }
+            catch (Exception ex)
+            {
+                
+                LogHelper.Error(ex);
+               return ex.Message;
+            }
+            }
+             </text>
+            }
+
+            if (Model.IsAdd || Model.IsUpdate)
+            {
+            @:/// <summary>
+            @:/// 保存数据 
+            @:/// </summary>
+            @:/// <param name="datas">当前提交的数据</param>
+            @:/// <returns></returns>
+                  <text>
+       public string OnSave(DataTable datas)
+        {
+           
+         
+            try
+            {
+           sdb.ExecuteNonQuery(" create table #k(@string.Join(",", Model.TableDefs.Select(c => c.FieldName + " " + c.DbType + (string.IsNullOrWhiteSpace(c.Length) ? "" : "(" + c.Length + ")"))))");
+         
+           sdb.BulkCopy("#k",datas);
+        @{ TableDef pk = Model.TableDefs.Where(c => c.PrimaryKey).First(); }
+            sdb.ExecuteNonQuery(@@"Update a set @string.Join(",",Model.TableDefs.Where(c=>!c.PrimaryKey).Select(c=>"a."+c.FieldName+"=b."+c.FieldName))   From @Model.TableName a,#k b where a.@pk.FieldName=b.@pk.FieldName
+      Insert into @Model.TableName (@string.Join(",", Model.TableDefs.Where(c => !c.PrimaryKey).Select(c => c.FieldName))) select @string.Join(",", Model.TableDefs.Where(c => !c.PrimaryKey).Select(c => "b."+c.FieldName)) From #k b where b.@pk.FieldName=@(pk.DbType=="int"?"0":"")");
+       
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error(ex.Message + "\r\n堆栈:" + ex.StackTrace);
+                return ex.Message;
+            }
+
+            return "";
+        }
+        </text>
+              }
+    }
+    }
+}
+
+
+
+

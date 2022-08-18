@@ -1,0 +1,191 @@
+﻿@section cut_head{
+<style>
+</style>
+}
+
+
+<el-container>
+    <el-header>
+        <el-form v-bind:inline="true" v-bind:model="SearchForm">
+                        <el-form-item label="姓名">
+                                    <el-input v-model="SearchForm.Name" placeholder="姓名" type="text"></el-input>
+
+                        </el-form-item>
+                        <el-form-item label="地址">
+                                    <el-input v-model="SearchForm.Addr" placeholder="地址" type="text"></el-input>
+
+                        </el-form-item>
+                        <el-form-item label="CreateTime">
+                                    <el-date-picker v-model="SearchForm.CreateTime"
+                                                    type="date"
+                                                    placeholder="CreateTime"
+                                                    value-format="yyyy-MM-dd">
+                                    </el-date-picker>
+
+                        </el-form-item>
+                        <el-form-item label="合资">
+                                    <el-checkbox v-model="SearchForm.HZ"></el-checkbox>
+
+                        </el-form-item>
+                                <el-form-item>
+                                        <el-button type="primary" size="mini" plain icon="el-icon-search" v-on:click="$refs.table_Main.reload()">Search</el-button>
+                                        <el-button type="primary" size="mini" plain icon="el-icon-download" v-on:click="onExport">Export</el-button>
+                                        <el-button type="primary" size="mini" plain icon="el-icon-plus" v-on:click="onAdd">Add</el-button>
+
+                                </el-form-item>
+
+        </el-form>
+    </el-header>
+    <el-main>
+        <el-grid url="@Url.Action("GetPage")" v-bind:filter="SearchForm" ref="table_Main" v-bind:default-sort="{prop:''}">
+                        <el-table-column prop="Name" label="姓名" width="150" show-overflow-tooltip>
+                        </el-table-column>
+                        <el-table-column prop="Addr" label="地址" width="150" show-overflow-tooltip>
+                        </el-table-column>
+                        <el-table-column prop="CreateTime" label="CreateTime" width="150" show-overflow-tooltip>
+                        </el-table-column>
+                        <el-table-column label="合资" width="50">
+                            <template v-slot="scope">
+                                <el-checkbox v-model="scope.row.HZ" disabled></el-checkbox>
+                            </template>
+                        </el-table-column>
+
+                        <el-table-column prop="Explains" label="说明" width="120" show-overflow-tooltip>
+                        </el-table-column>
+                        <el-table-column prop="Remark" label="备注" width="120" show-overflow-tooltip>
+                        </el-table-column>
+                                <el-table-column label="操作" width="120">
+                        <template v-slot="scope">
+                                    <el-button type="primary" icon="el-icon-edit" circle v-on:click="onEdit(scope)"></el-button>
+                                    <el-button type="primary" icon="el-icon-delete" circle v-on:click="onDelete(scope.row.ID)"></el-button>
+
+
+
+                        </template>
+                    </el-table-column>
+
+
+        </el-grid>
+    </el-main>
+
+
+
+    <el-dialog v-bind:title="Dialog.EditModel.title"
+               v-bind:visible.sync="Dialog.EditModel.visible"
+               width="30%"
+               v-bind:close-on-click-modal="false" v-bind:close-on-press-escape="false">
+        <div>
+            <el-form ref="editform" v-bind:model="Dialog.EditModel.Form" label-width="80px">
+                        <el-form-item label="姓名" prop="Name">
+                                    <el-input v-model="Dialog.EditModel.Form.Name" placeholder="姓名" type="text"
+                                                maxlength="32" show-word-limit
+></el-input>
+
+                        </el-form-item>
+                        <el-form-item label="地址" prop="Addr">
+                                    <el-input v-model="Dialog.EditModel.Form.Addr" placeholder="地址" type="text"
+                                                maxlength="128" show-word-limit
+></el-input>
+
+                        </el-form-item>
+                        <el-form-item label="CreateTime" prop="CreateTime">
+        <el-date-picker v-model="Dialog.EditModel.Form.CreateTime"
+                        type="date"
+                        placeholder="CreateTime"
+                        value-format="yyyy-MM-dd">
+        </el-date-picker>
+
+                        </el-form-item>
+                        <el-form-item label="合资" prop="HZ">
+        <el-checkbox v-model="Dialog.EditModel.Form.HZ"></el-checkbox>
+
+                        </el-form-item>
+
+
+            </el-form>
+        </div>
+        <span slot="footer" class="dialog-footer">
+            <el-button v-on:click="Dialog.EditModel.visible = false">取 消</el-button>
+            <el-button type="primary" v-bind:loading="Dialog.EditModel.loading" v-on:click="onSave">确 定</el-button>
+        </span>
+    </el-dialog>
+
+</el-container>
+
+
+
+
+
+
+@section scripts{
+<script src="/Scripts/ElementUI/elementUI-Gird/grid-elementUI.js"></script>
+<script>
+    var vue_data = {
+            
+        SearchForm: {
+Name:'',Addr:'',CreateTime:'',HZ:'',
+        },
+        
+                
+        Dialog: {
+            EditModel: {
+                visible: false,
+                title: '',
+                loading: false,
+                Form: {
+ID:0,
+Name:'',
+Addr:'',
+CreateTime:'',
+HZ:false,
+
+                }
+
+            }
+        }
+        
+
+    };
+
+    var vue_methods = {
+            
+        onExport: function () {
+            var self = this;
+            //公共js里的方法
+            onExport.call(self, '@Url.Action("OnExport")', self.SearchForm);
+
+        },
+        
+               
+        onDelete: function (pk) {
+            onDelete.call(this, '@Url.Action("OnDelete")', pk)
+        },
+
+        
+               
+        onAdd: function () {
+            onAdd.call(this)
+            var emf = vue_data.Dialog.EditModel.Form;
+            emf.ID = 0;
+        },
+
+        
+               
+        onEdit: function (scope) {
+            onEdit.call(this,scope)
+            
+        },
+
+        
+               
+        onSave: function () {
+            onSave.call(this, '@Url.Action("OnSave")')
+        },
+
+        
+
+
+    }
+
+</script>
+}

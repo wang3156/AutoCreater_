@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewBag.Title - 代码自动生成</title>
+    @Styles.Render("~/Content/Element")
+    @Scripts.Render("~/bundles/modernizr")
+    @RenderSection("cut_head", required: false)
+    <style>
+        html, body {
+            height: 100%;
+            padding: 0px;
+            margin: 0px;
+        }
+
+        #page_content, #page_content .el-container {
+            height: 100%;
+        }
+
+            #page_content > .el-container > .el-main {
+                padding: 10px 20px;
+            }
+    </style>
+</head>
+<body>
+    <div id="page_content">
+        @RenderBody()
+    </div>
+    @Scripts.Render("~/bundles/jquery")
+    @Scripts.Render("~/bundles/Element")
+    <script src="~/Scripts/commfun.js"></script>
+    @*@Scripts.Render("~/bundles/bootstrap")*@
+    @RenderSection("scripts", required: true)
+</body>
+</html>
+
+@*子页面在scripts中声名对象  vue_data={a:'',b:''}  =>vue中的data ,vue_methods={aa:function(){},bb:function(){}}=> view中的methods ,viewAfter =function(){} => vue页面生成完成后调用的方法*@
+<script>
+    //添加子页面加载时的load
+    vue_data.fra_loading = false;
+
+    var baseUrl = '@Url.Content("~/")';
+    var vueObj = new Vue({
+        el: '#page_content',
+        data: window.vue_data,
+        mounted: function () {
+            this.$nextTick(function () {
+                if (window.viewAfter) {
+                    viewAfter.call(this);
+                }
+            });
+        },
+        methods: window.vue_methods
+    });
+
+    
+</script>

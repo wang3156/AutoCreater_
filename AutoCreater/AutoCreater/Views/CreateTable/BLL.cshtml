@@ -1,0 +1,115 @@
+@using Models.CreateProperty;
+@using RazorEngineTest;
+@using Newtonsoft.Json;
+@model TableObj
+
+using CommModels;
+using System;
+using System.Collections.Generic;
+using @(string.IsNullOrWhiteSpace(Model.Namespace) ? Model.TableName : Model.Namespace).DAL;
+using Newtonsoft.Json;
+using CommLibrary;
+using System.Data;
+
+namespace @(string.IsNullOrWhiteSpace(Model.Namespace) ? Model.TableName : Model.Namespace).BLL
+{
+    public class @(Model.TableName)BLL : IDisposable
+    {
+        @(Model.TableName)DAL dal = new @(Model.TableName)DAL();
+
+        public void Dispose()
+        {
+            dal.Dispose();
+        }
+        /// <summary>
+        /// 获取分页数据 
+        /// </summary>
+        /// <param name="pi"></param>
+        /// <param name="dic"></param>
+        /// <returns>返回的也是PageInfo对象,其中的值只看总页码和Data即可</returns>
+        public PageInfo GetPage(PageInfo pi,Dictionary<string, string> dic)
+        {   
+         if (string.IsNullOrWhiteSpace(pi.SortExpression))
+            {
+                pi.SortExpression =" [@Model.TableDefs.Where(c => c.DisplayPage).First().FieldName.Trim()]  asc ";
+            }     
+            return dal.GetPage(pi, dic);
+        }
+
+        @{  
+            if (Model.IsExport)
+            {
+      
+     
+        @:///<summary>
+        @:/// 导出数据的方法
+        @:///</summary>
+        @:///<param name=""filter"">当前的查询条件</param>
+        @:/// <returns></returns>
+  
+       <text>
+        public string OnExport(Dictionary<string, string> filter)
+        {
+         
+          @{ Dictionary<string,string> lit = Model.TableDefs.Where(c => c.DisplayPage).ToDictionary(c => c.FieldName, b => string.IsNullOrWhiteSpace(b.DisplayName)?b.FieldName:b.DisplayName);
+              Model.FkObjs.ForEach(c => {
+                  c.FkDefs.Where(d => d.DisplayPage).ToList().ForEach(d =>
+                  {
+                      lit.Add(d.FieldName, d.DisplayName);
+                  });
+              });
+          }
+            //记录列名和显示名映射
+            Dictionary<string, string>dic =JsonConvert.DeserializeObject<Dictionary<string, string>>("@RazorHelper.RawHtml(JsonConvert.SerializeObject(lit).Replace("\"","\\\""))");
+            DataTable dt = (GetPage(new PageInfo { PageIndex = 1, PageSize = int.MaxValue }, filter).Data as DataTable);
+            foreach (DataColumn col in dt.Columns)
+            {
+                if (dic.ContainsKey(col.ColumnName))
+                {
+                    col.ColumnName = dic[col.ColumnName];
+                }
+            }
+            byte[] bte = CommFun.DataTableToExcel(dt);
+            return Convert.ToBase64String(bte);
+
+        }
+        </text>
+          
+              }
+
+           if (Model.IsDel)
+                  {
+                   
+            @:/// <summary>
+            @:/// 删除数据 
+            @:/// </summary>
+            @:/// <param name="pk">主键</param>
+            @:/// <returns></returns>
+            <text>
+            public string OnDelete(string pk)
+            {
+                return dal.OnDelete(pk);
+
+            }
+             </text>
+              }
+
+          if (Model.IsAdd||Model.IsUpdate)
+              {   
+            @:/// <summary>
+            @:/// 保存数据 
+            @:/// </summary>
+            @:/// <param name="datas">当前提交的数据</param>
+            @:/// <returns></returns>
+                  <text>
+          public string OnSave(DataTable datas) {
+            return dal.OnSave(datas);
+        }
+        </text>
+
+          
+              }
+
+       }
+    }
+}

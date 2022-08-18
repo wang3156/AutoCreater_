@@ -1,0 +1,55 @@
+﻿@section cut_head{
+<style>
+</style>
+}
+
+
+<el-container>
+    <el-header>
+        <el-form v-bind:inline="true" v-bind:model="SearchForm">
+                        <el-form-item label="姓名">
+                            <el-input v-model="SearchForm.Name" placeholder="姓名"></el-input>
+                        </el-form-item>
+                        <el-form-item label="Age">
+                            <el-input v-model="SearchForm.Age" placeholder="Age"></el-input>
+                        </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" plain icon="el-icon-search" v-on:click="$refs.table_Main.reload()">Search</el-button>
+                    </el-form-item>
+
+        </el-form>
+    </el-header>
+    <el-main>
+        <el-grid url="@Url.Action("GetPage")" v-bind:filter="SearchForm" ref="table_Main" v-bind:default-sort="{prop:''}">
+                    <el-table-column prop="Name" label="姓名" width="180" show-overflow-tooltip>
+                    </el-table-column>
+                    <el-table-column prop="Addr" label="地址" width="180" show-overflow-tooltip>
+                    </el-table-column>
+                    <el-table-column prop="Age" label="Age" width="180" show-overflow-tooltip>
+                    </el-table-column>
+
+        </el-grid>
+    </el-main>
+</el-container>
+
+
+
+
+
+
+@section scripts{
+<script src="/Scripts/ElementUI/elementUI-Gird/grid-elementUI.js"></script>
+<script>
+    var vue_data = {
+        SearchForm: {
+Name:'',Age:'',
+        }
+    };
+
+    var vue_methods = {
+
+    }
+
+</script>
+}
+ 
